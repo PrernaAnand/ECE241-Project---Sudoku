@@ -1,0 +1,340 @@
+module imagetester
+(
+  CLOCK_50,
+  SW,
+  KEY,
+  LEDR,
+  HEX0,
+  HEX1,
+  PS2_CLK,
+  PS2_DAT,
+  // The ports below are for the VGA output.  Do not change.
+  VGA_CLK,
+  VGA_HS,
+  VGA_VS,
+  VGA_BLANK_N,
+  VGA_SYNC_N,
+  VGA_R,
+  VGA_G,
+  VGA_B
+);
+
+input			CLOCK_50;
+input	    [3:0]	KEY;
+input     [9:0] SW;
+output    [9:0] LEDR;
+output    [6:0] HEX0;
+output    [6:0] HEX1;
+
+output			VGA_CLK;
+output			VGA_HS;
+output			VGA_VS;
+output			VGA_BLANK_N;
+output			VGA_SYNC_N;
+output	[7:0]	VGA_R;
+output	[7:0]	VGA_G;
+output	[7:0]	VGA_B;
+
+wire resetn;
+assign resetn = KEY[3];
+wire clock;
+assign clock = CLOCK_50;
+
+// Create the colour, x, y and writeEn wires that are inputs to the controller.
+wire [2:0] colour;
+wire [7:0] x;
+wire [6:0] y;
+wire writeEn;
+
+// Create an Instance of a VGA controller - there can be only one!
+// Define the number of colours as well as the initial background
+// image file (.MIF) for the controller.
+vga_adapter VGA(
+    .resetn(resetn),
+    .clock(CLOCK_50),
+    .colour(colour),
+    .x(x),
+    .y(y),
+    .plot(writeEn),
+    /* Signals for the DAC to drive the monitor. */
+    .VGA_R(VGA_R),
+    .VGA_G(VGA_G),
+    .VGA_B(VGA_B),
+    .VGA_HS(VGA_HS),
+    .VGA_VS(VGA_VS),
+    .VGA_BLANK(VGA_BLANK_N),
+    .VGA_SYNC(VGA_SYNC_N),
+    .VGA_CLK(VGA_CLK));
+  defparam VGA.RESOLUTION = "160x120";
+  defparam VGA.MONOCHROME = "FALSE";
+  defparam VGA.BITS_PER_COLOUR_CHANNEL = 1;
+  defparam VGA.BACKGROUND_IMAGE = "black.mif";
+  
+  
+  inout	PS2_CLK;
+  inout	PS2_DAT;
+	
+  //KEYBOARD
+  wire [7:0] data_received;
+  PS2_Demo KEYBOARD( .clock(CLOCK_50), .key(KEY[3:0]),	.PS2_CLK(PS2_CLK), .PS2_DAT(PS2_DAT), 
+	                  .hex0(HEX0[6:0]), .hex1(HEX1[6:0]), .last_data_received(data_received));
+  
+  //FSM
+  wire ld_page, ld_S_matrix, ld_L_matrix, ld_plot, go;
+  assign go = SW[9]; //draw numbers
+  wire [2:0] ld_move;
+  wire [3:0] ld_number;
+  
+  FSM( .Clock(clock), .Start(SW[1]), .End_Game(SW[0]), .GoEasy(SW[2]), .GoDifficult(SW[3]), GoDraw(SW[4]), .Go(go),
+       .Plot(data_received), .enable(writeEn), .loadpage(ld_page), .loadEasymatrix(ld_S_matrix), .loadDifficultmatrix(ld_L_matrix), .loadplot(ld_plot),
+		 .move(ld_move), .number(ld_number));
+		 
+  assign LEDR[0] = ld_page;
+  assign LEDR[1] = ld_S_matrix;
+  assign LEDR[2] = ld_L_matrix;
+  assign LEDR[3] = ld_plot;
+  
+  //position
+  assign x[7:0] = xposition[7:0];
+  assign y[6:0] = yposition[6:0];
+  assign colour[2:0] = colourinitial[2:0];
+
+  reg [7:0]xposition;
+  reg [6:0]yposition;
+  reg [2:0]colourinitial;
+  reg [14:0]memoryAddress;
+
+  wire [2:0]colourtitle, coloursgrid, colourdgrid, col1, col2, col3, col4, col5, col6, col7, col8, col9;
+
+  reg doneDraw, doneEasy, doneDifficult, doneNumber;
+  initial doneEasy = 1'b0;
+  initial doneDraw = 1'b0;
+  initial doneDifficult = 1'b0;
+  initial doneNumber = 1'b0;
+  
+  integer i, j;
+  
+  //numbers
+  reg [7:0] x_number;
+  reg [6:0] y_number;
+  reg [6:0] numberAddress;
+  
+  titleMemory T(.address(memoryAddress), .clock(clock), .data(3'b0), .wren(1'b0), .q(colourtitle));
+  hard_grid HG(.address(memoryAddress), .clock(clock), .data(3'b0), .wren(1'b0), .q(coloursgrid));
+  easy_grid EG(.address(memoryAddress), .clock(clock), .data(3'b0), .wren(1'b0), .q(colourdgrid));
+  digitone i1(.address(numberAddress), .clock(clock), .data(3'b0), .wren(1'b0), .q(col1));
+
+	always @(posedge clock)
+		begin
+			if (SW[0] == 1'b1)
+				begin
+					xposition <= 0;
+					yposition <= 0;
+					colourinitial <= 0;
+					i <= 0;
+					j <= 0;
+					memoryAddress <= 0;
+					doneDraw <= 1'b0;
+					doneEasy <= 1'b0;
+					doneDifficult <= 1'b0;
+				end
+			else 
+			 begin
+				 if(ld_page == 1'b1)
+					begin
+						if (doneDraw == 1'b0)
+						begin
+							colourinitial[2:0] <= colourtitle[2:0];
+
+							memoryAddress <= memoryAddress + 1'b1;
+
+							if (j==159)
+								begin
+									j <= 0;
+									i <= i + 1;
+								end
+							else
+								begin
+									j <= j + 1;
+								end
+
+							xposition <= j;
+							yposition <= i;
+
+							if ((i==119) && (j==159))
+								begin
+									doneDraw <= 1'b1;
+									memoryAddress <= 0;
+									xposition <= 0;
+									yposition <= 0;
+									i <= 0;
+									j <= 0;
+									colourinitial <= 0;
+								end
+						end
+					end
+				 if(ld_S_matrix == 1'b1) //easy
+			     begin
+						if (doneEasy == 1'b0)
+						begin
+							colourinitial[2:0] <= coloursgrid[2:0];
+
+							memoryAddress <= memoryAddress + 1'b1;
+
+							if (j==159)
+								begin
+									j <= 0;
+									i <= i + 1;
+								end
+							else
+								begin
+									j <= j + 1;
+								end
+
+							xposition <= j;
+							yposition <= i;
+
+							if ((i==119) && (j==159))
+								begin
+									doneEasy <= 1'b1;
+									memoryAddress <= 0;
+									xposition <= 0;
+									yposition <= 0;
+									i <= 0;
+									j <= 0;
+									colourinitial <= 0;
+								end
+						end
+						x_number <= 8'd30;
+						y_number <= 7'd10;
+					end	
+			   if(ld_L_matrix == 1'b1) //difficult
+		       begin
+						if (doneDifficult == 1'b0)
+						begin
+							colourinitial[2:0] <= colourdgrid[2:0];
+
+							memoryAddress <= memoryAddress + 1'b1;
+
+							if (j==159)
+								begin
+									j <= 0;
+									i <= i + 1;
+								end
+							else
+								begin
+									j <= j + 1;
+								end
+
+							xposition <= j;
+							yposition <= i;
+
+							if ((i==119) && (j==159))
+								begin
+									doneDifficult <= 1'b1;
+									memoryAddress <= 0;
+									xposition <= 0;
+									yposition <= 0;
+									i <= 0;
+									j <= 0;
+									colourinitial <= 0;
+								end
+						end
+						x_number <= 8'd30;
+						y_number <= 7'd10;
+				end
+			  if(ld_plot == 1'b1 )
+				  begin
+					    if(go == 1'b0)
+						   begin
+								 if(ld_move == 3'b010)  //DOWN
+								  begin
+									 yposition <= 0;
+									 xposition <= 0;
+									 x_number <= x_number; //new position
+									 y_number <= y_number + 7'd11;
+									 doneNumber <= 0;
+									 //data_received <= 0
+									 //ld_move <= 0
+								  end
+								if(ld_move == 3'b001) //UP
+								  begin 
+									 yposition <= 0;
+									 xposition <= 0;
+									 x_number <= x_number; //new position
+									 y_number <= y_number - 7'd11;
+									 doneNumber <= 0;
+								  end  
+								if(ld_move == 3'b100) //LEFT
+								  begin 
+									 yposition <= 0;
+									 xposition <= 0;
+									 x_number <= x_number - 8'd11; //new position
+									 y_number <= y_number;
+									 doneNumber <= 0;
+								  end
+								if(ld_move == 3'b111) //RIGHT
+								  begin
+									 yposition <= 0;
+									 xposition <= 0;
+									 x_number <= x_number + 8'd11; //new position
+									 y_number <= y_number;
+									 doneNumber <= 0;
+								  end
+						  end
+					   else if(go == 1'b1)
+						 begin
+						  if (doneNumber == 1'b0)
+							begin
+	//						   case(ld_number[3:0])
+	//									4'b0000: colourinitial[2:0] <= col1[2:0]; //1
+	//									4'b0001: colourinitial[2:0] <= col2[2:0]; //2 
+	//									4'b0010: colourinitial[2:0] <= col3[2:0]; //3
+	//									4'b0011: colourinitial[2:0] <= col4[2:0]; //4
+	//									4'b0100: colourinitial[2:0] <= col5[2:0]; //5
+	//									4'b0101: colourinitial[2:0] <= col6[2:0]; //6
+	//									4'b0110: colourinitial[2:0] <= col7[2:0]; //7
+	//									4'b0111: colourinitial[2:0] <= col8[2:0]; //8
+	//									4'b1000: colourinitial[2:0] <= col9[2:0]; //9
+	//									default: colourinitial[2:0] <= col1[2:0];
+	//                     endcase
+								  
+								colourinitial[2:0] <= col1[2:0];
+								numberAddress <= numberAddress + 1'b1;
+
+								if (j==10)
+									begin
+										j <= 0;
+										i <= i + 1;
+									end
+								else
+									begin
+										j <= j + 1;
+									end
+
+								xposition <= x_number + j;
+								yposition <= y_number + i;
+
+								if ((i==10) && (j==10))
+									begin
+										doneNumber <= 1'b1;
+										numberAddress <= 0;
+										xposition <= 0;
+										yposition <= 0;
+										i <= 0;
+										j <= 0;
+										colourinitial <= 0;
+									//	data_recieved <= 0
+									end
+					        end
+			           end 
+				  end
+			end
+		end
+
+
+		  assign x[7:0] = xposition[7:0];
+		  assign y[6:0] = yposition[6:0];
+		  assign colour[2:0] = colourinitial[2:0];
+
+endmodule

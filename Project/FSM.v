@@ -1,0 +1,396 @@
+module FSM(input Clock, Start, End_Game, GoEasy, GoDifficult, Go, GoDraw,
+           input [7:0] Plot, output enable, output loadpage, loadEasymatrix, loadDifficultmatrix, loadplot,
+			  output [2:0] move, output [3:0] number);
+			  
+	control C(.clock(Clock), 
+				 .end_game(End_Game), 
+				 .goEasy(GoEasy), 
+				 .goDraw(GoDraw),
+				 .goDifficult(GoDifficult), 
+	          .plot(Plot), 
+				 .ld_page(loadpage),  
+				 .ld_S_matrix(loadEasymatrix), 
+				 .ld_L_matrix(loadDifficultmatrix), 
+				 .writeEn(enable), 
+				 .ld_plot(loadplot),
+				 .ld_number(number),
+				 .ld_move(move),
+				 .start(Start),
+				 .go(Go));
+				  			  
+endmodule
+				  
+
+module control(input clock, start, end_game, goEasy, goDifficult, goDraw, input [7:0] plot, go,
+               output reg ld_page, writeEn, ld_S_matrix, ld_L_matrix, ld_plot,
+					output reg [1:0] ld_move, output reg [3:0] ld_number);
+	
+	reg [4:0] current_state, next_state;
+	
+	localparam LOAD_PAGE = 5'd0,
+	           LOAD_PAGE_WAIT = 5'd1,
+				  S_MATRIX = 5'd2,
+				  S_MATRIX_WAIT = 5'd3,
+				  DRAW = 5'd4,
+				  DRAW_WAIT = 5'd5, 
+				  L_MATRIX = 5'd6,
+				  L_MATRIX_WAIT = 5'd7;
+	always@(*)
+	  begin
+	    case(current_state)
+		 
+			  LOAD_PAGE: next_state = (start == 1'b1 && end_game == 1'b0) ? LOAD_PAGE_WAIT : LOAD_PAGE;
+			  LOAD_PAGE_WAIT: begin
+									 if(goEasy == 1'b1 & goDifficult == 1'b0)
+										next_state = S_MATRIX;
+									 else if(goEasy == 1'b0 & goDifficult == 1'b1)
+										next_state = L_MATRIX; 
+									 else
+										next_state = LOAD_PAGE_WAIT;
+                           end
+									
+			  S_MATRIX: next_state = S_MATRIX_WAIT; 
+			  S_MATRIX_WAIT: next_state = (goDraw == 1'b1) ? DRAW : S_MATRIX_WAIT;		
+
+			  DRAW: next_state = begin 
+										  if(plot == 8'h16 || plot == 8'h1E || plot == 8'h26 || plot == 8'h25 || plot == 8'h2E 
+											  || plot == 8'h36 || plot == 8'h3D || plot == 8'h3E || plot == 8'h46 || plot == 8'h75
+											  || plot == 8'h72 || plot == 8'h6B || plot == 8'h74)  	  
+											  next_state = DRAW_WAIT; //stays in the state
+										  else  
+			                          next_state = DRAW; //stays in the state	
+		     DRAW_WAIT: next_state = (go == 1'b0) ? DRAW: DRAW_WAIT;					 
+			  
+			  L_MATRIX: next_state = L_MATRIX_WAIT;
+			  L_MATRIX_WAIT: next_state = (goDraw == 1'b1) ? DRAW : L_MATRIX_WAIT;
+			  
+			  default next_state = LOAD_PAGE;
+		 endcase
+	  end	  
+
+	  
+	  always@(*)
+	    begin
+		    ld_page = 1'b0;
+			 ld_S_matrix = 1'b0;
+			 ld_L_matrix = 1'b0;
+			 ld_plot = 1'b0; 
+			 writeEn = 1'b0;
+			 ld_number = 4'b1111;
+			 ld_move = 3'b000;
+		 
+		 if(end_game == 1'b1)
+		   begin
+			 ld_page = 1'b0;
+			 ld_S_matrix = 1'b0;
+			 ld_L_matrix = 1'b0;
+			 ld_plot = 1'b0; 
+			 writeEn = 1'b0;
+			 ld_number = 4'b1111;
+			 ld_move = 3'b000;
+			end
+		 else 
+		   begin
+				case(current_state)
+			
+			        LOAD_PAGE_WAIT: //draw title page
+					    begin
+						    ld_page = 1'b1;
+						    writeEn = 1'b1;
+							 ld_number = 4'b1001; //page
+							 ld_S_matrix = 1'b0;
+							 ld_L_matrix = 1'b0;
+							 ld_plot = 1'b0;
+						 end
+						  
+					  S_MATRIX_WAIT: //draw the grid
+					     begin
+					       ld_S_matrix = 1'b1;
+							 writeEn = 1'b1;
+							 ld_number = 4'b1010; //s_matrix
+							 ld_L_matrix = 1'b0;
+							 ld_plot = 1'b0;
+							 ld_page = 1'b0;
+						  end
+						
+					  L_MATRIX_WAIT: 
+					     begin
+					      ld_L_matrix = 1'b1;
+							writeEn = 1'b1;
+                     ld_number = 4'b1011; //l_matrix
+							ld_plot = 1'b0;
+							ld_page = 1'b0;
+							ld_S_matrix = 1'b0;
+						  end
+					  
+					  DRAW_WAIT: 
+					    begin
+						   ld_plot = 1'b1;
+							writeEn = 1'b1;
+							ld_page = 1'b0;
+							ld_S_matrix = 1'b0;
+							ld_L_matrix = 1'b0;
+							
+							if(plot == 8'h16)
+							  ld_number = 4'b0000; //1
+							else if(plot == 8'h1E)
+							  ld_number = 4'b0001; //2
+							else if(plot == 8'h26)
+							  ld_number = 4'b0010; //3
+                     else if(plot == 8'h25)
+							  ld_number = 4'b0011; //4
+							else if(plot == 8'h2E)
+							  ld_number = 4'b0100; //5
+							else if(plot == 8'h36)
+							  ld_number = 4'b0101; //6
+							else if(plot == 8'h3D)
+							  ld_number = 4'b0110; //7
+							else if(plot == 8'h3E)
+							  ld_number = 4'b0111; //8
+							else if(plot == 8'h46)
+							  ld_number = 4'b1000; //9	
+                     else if(plot == 8'h75)
+                       ld_move = 3'b001;   //UP
+		               else if(plot == 8'h72)		
+		                 ld_move = 3'b010;   //DOWN
+				         else if(plot == 8'h6B)
+		                 ld_move = 3'b100;   //LEFT
+				         else if(plot == 8'h74)
+		                 ld_move = 3'b111;   //RIGHT					
+				       end		
+						 
+				endcase //no need of default
+		  end
+	 end
+		
+		 always@(posedge clock)
+		  begin
+		    if(end_game == 1'b1) //active high
+			   current_state <= LOAD_PAGE_WAIT;
+			 else
+			   current_state <= next_state;
+		  end
+		  
+endmodule
+				  
+//module datapath(input clock, ld_page, ld_S_matrix, ld_L_matrix, ld_plot, go, end_game,
+//                input [1:0] ld_move, input [3:0] ld_number,
+//					 output reg [2:0] colour, output Check, output reg [7:0] x_temp,
+//					 output reg [6:0] y_temp);
+//
+//	 //check will check the validity
+//    assign Check = 1'b0;				
+//	
+//	
+//	 //Choose colour
+//	 wire [2:0] c1, c2, c3; //colour for page, s_matrix, l_matrix
+//	 wire [2:0] col1, col2, col3, col4, col5, col6, col7, col8, col9; //colour for numbers
+//    
+////	 always@(posedge clock)
+////	  begin
+////	      case(ld_number[3:0])
+////			
+////			4'b0000: colour = col1; //1
+////			4'b0001: colour = col2; //2 
+////			4'b0010: colour = col3; //3
+////			4'b0011: colour = col4; //4
+////         4'b0100: colour = col5; //5
+////         4'b0101: colour = col6; //6
+////			4'b0110: colour = col7; //7
+////			4'b0111: colour = col8; //8
+////			4'b1000: colour = col9; //9
+////			4'b1001: colour = c1;   //page
+////			4'b1010: colour = c2;   //s_matrix
+////			4'b1011: colour = c3;   //l_matrix
+////			default: colour = c1;
+////
+////			endcase
+////		end
+//		
+//	  //fullscreen
+//	  reg[7:0]  x_page, x_s, x_l, count_x;
+//     reg [6:0] y_page, y_s, y_l, count_y;
+//	  reg prep_done, done, donel, doneN;
+//
+//	  initial prep_done = 0;
+//	  initial done = 0;
+//	  initial donel = 0;
+//	  initial doneN = 0;
+//
+//	  initial x_page = 8'd0;
+//	  initial y_page = 7'd0;
+//	  initial x_s = 8'd0;
+//	  initial y_s = 7'd0;
+//	  initial x_l = 8'd0;
+//	  initial y_l = 7'd0;
+//     initial count_x = 8'd0;
+//	  initial count_y = 7'd0;
+//	  
+//	  //numbers
+//	  reg [7:0] x_number;
+//	  reg [6:0] y_number;
+//	  initial x_number = 8'd0;
+//	  initial y_number = 7'd0;
+//	  reg [14:0] title;
+//	 // initial title = 0;
+//							 
+//	titleMemory T(.address(title), .clock(clock), .data(3'b0), .wren(1'b0), .q(c1));
+//	
+//	always@(posedge clock)
+//	  begin 
+//	  if(end_game == 1'b1)
+//	   begin
+//		  prep_done <= 0;
+//	     done <= 0;
+//	     donel <= 0;
+//		  doneN <= 0;
+//	     x_page <= 0;
+//	     y_page <= 0;
+//	     x_s <= 0;
+//	     y_s <= 0;
+//	     x_l <= 0;
+//	     y_l <= 0;
+//		  count_x <= 0;
+//		  count_y <= 0;
+//		  x_number <= 0;
+//		  y_number <= 0;
+//		end
+//
+//		else
+//		 begin
+//				 if(ld_page == 1'b1)
+//					 begin
+//
+//					 end
+//			 
+//			    if(ld_S_matrix == 1'b1)
+//					begin
+//						
+//					 end
+//				 
+//			  if(ld_L_matrix == 1'b1)
+//				 begin
+//						
+//				 end
+//				 
+//		   if(ld_plot == 1'b1 && ld_move == 2'b00 && go == 1'b0) //DOWN
+//			  begin
+//				 count_y <= 7'd0;
+//				 count_x <= 8'd0;
+//				 x_number <= x_number; //new position
+//				 y_number <= y_number + 7'd11;
+//			  end
+//			if(ld_plot == 1'b1 && ld_move == 2'b01 && go == 1'b0) //UP
+//		     begin 
+//				 count_y <= 7'd0;
+//				 count_x <= 8'd0;
+//				 x_number <= x_number; //new position
+//				 y_number <= y_number - 7'd11;
+//			  end  
+//			if(ld_plot == 1'b1 && ld_move == 2'b10 && go == 1'b0) //LEFT
+//			  begin 
+//				 count_y <= 7'd0;
+//				 count_x <= 8'd0;
+//				 x_number <= x_number - 8'd11; //new position
+//				 y_number <= y_number;
+//			  end
+//			if(ld_plot == 1'b1 && ld_move == 2'b11 && go == 1'b0) //RIGHT
+//			  begin
+//				 count_y <= 7'd0;
+//				 count_x <= 8'd0;
+//				 x_number <= x_number + 8'd11; //new position
+//				 y_number <= y_number;
+//			  end
+//			  
+//			  
+//		  if(ld_plot == 1'b1 && go == 1'b1)
+//		   begin
+//			  if(doneN == 0)
+//				  begin
+//				       if(count_x == 8'd10 && count_y == 7'd10)
+//						   begin
+//							   doneN <= 1;
+//							end
+//						 else if(count_x == 8'd10) //8'11 
+//							begin 
+//								count_y <= count_y + 7'd1;
+//								count_x <= 0;
+//							end
+//						 else
+//   						begin
+//							   count_x <= count_x + 8'd1;
+//							end
+//						 x_temp <= x_number + count_x; // position + count for the screen
+//						 y_temp <= y_number + count_y; 
+//						 
+//					 end
+//			end  
+//
+//		 end
+//		 
+//     end
+//	  
+//	   wire [15:0] address_one, address_two, address_three, address_four, address_five, address_six, address_seven, address_eight, address_nine;
+//	
+//	   
+//		
+//		
+//		wire [14:0] easy_m;
+//		vga_address_translator t2(.x(x_s), .y(y_s), .mem_address(easy_m));
+//      easy_grid EG(.address(easy_m), .clock(clock), .data(3'b0), .wren(1'b0), .q(c2));
+//		
+//		
+//		wire [14:0] hard_m;
+//		vga_address_translator t3(.x(x_l), .y(y_l), .mem_address(hard_m));
+//      hard_grid HG(.address(hard_m), .clock(clock), .data(3'b0), .wren(1'b0), .q(c3));
+//	  
+////	   assign address_one = ({1'b0, count_y, 7'd0} + {1'b0, count_y, 5'd0} + {1'b0, count_x});
+////      wire [14:0] one_m;
+////      assign one_m = address_one[14:0];
+////      digitone i0(.address(one_m), .clock(clock), .data(3'b0), .wren(1'b0), .q(col1));
+////
+////	   assign address_two = ({1'b0, count_y, 7'd0} + {1'b0, count_y, 5'd0} + {1'b0, count_x});
+////      wire [14:0] two_m;
+////      assign two_m = address_two[14:0];
+////	   digittwo i1(.address(two_m), .clock(clock), .data(3'b0), .wren(1'b0), .q(col2));
+////
+////	   assign address_three = ({1'b0, count_y, 7'd0} + {1'b0, count_y, 5'd0} + {1'b0, count_x});
+////      wire [14:0] three_m;
+////      assign three_m = address_three[14:0];
+////      digitthree i2(.address(three_m), .clock(clock), .data(3'b0), .wren(1'b0), .q(col3));  
+////
+////	   assign address_four = ({1'b0, count_y, 7'd0} + {1'b0, count_y, 5'd0} + {1'b0, count_x});
+////      wire [14:0] four_m;
+////      assign four_m = address_four[14:0];
+////      digitfour i3(.address(four_m), .clock(clock), .data(3'b0), .wren(1'b0), .q(col4));
+////
+////	   assign address_five = ({1'b0, count_y, 7'd0} + {1'b0, count_y, 5'd0} + {1'b0, count_x});
+////      wire [14:0] five_m;
+////      assign five_m = address_five[14:0];
+////	   digitfive i4(.address(five_m), .clock(clock), .data(3'b0), .wren(1'b0), .q(col5));
+////
+////	   assign address_six = ({1'b0, count_y, 7'd0} + {1'b0, count_y, 5'd0} + {1'b0, count_x});
+////      wire [14:0] six_m;
+////      assign six_m = address_six[14:0];
+////	   digitsix i5(.address(six_m), .clock(clock), .data(3'b0), .wren(1'b0), .q(col6));
+////
+////	   assign address_seven = ({1'b0, count_y, 7'd0} + {1'b0, count_y, 5'd0} + {1'b0, count_x});
+////      wire [14:0] seven_m;
+////      assign seven_m = address_seven[14:0];
+////	   digitseven i6(.address(seven_m), .clock(clock), .data(3'b0), .wren(1'b0), .q(col7));
+////
+////	   assign address_eight = ({1'b0, count_y, 7'd0} + {1'b0, count_y, 5'd0} + {1'b0, count_x});
+////      wire [14:0] eight_m;
+////      assign eight_m = address_eight[14:0];
+////    	digiteight i7(.address(eight_m), .clock(clock), .data(3'b0), .wren(1'b0), .q(col8));
+////
+////	   assign address_nine = ({1'b0, count_y, 7'd0} + {1'b0, count_y, 5'd0} + {1'b0, count_x});
+////      wire [14:0] nine_m;
+////      assign nine_m = address_nine[14:0];
+////	   digitnine i8(.address(nine_m), .clock(clock), .data(3'b0), .wren(1'b0), .q(col9));
+//	  
+//endmodule			
+//
+//
+	  
+

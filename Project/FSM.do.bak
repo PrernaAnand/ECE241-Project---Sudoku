@@ -1,0 +1,72 @@
+# set the working dir, where all compiled verilog goes
+vlib work
+
+# compile all verilog modules in mux.v to working dir
+# could also have multiple verilog files
+vlog FSM.v
+
+#load simulation using mux as the top level simulation module
+vsim FSM
+
+
+#log all signals and add some signals to waveform window
+log {/*}
+
+# add wave {/*} would add all items in top level simulation module
+add wave {/*}
+
+#for clock_50
+force {clk} 0 0ns, 1 5ns -r 10ns
+
+#forcing resetn (i.e endgame):
+
+force {End_Game} 0
+run 10ns
+
+force {End_Game} 1  
+force {GoEasy} 0
+force {GoDifficult} 0
+force {GoDraw} 0
+run 10ns
+
+#loading page: (clear grid is start, should take us to title page)
+
+force {Clear_Grid} 1
+force {GoEasy} 0
+force {GoDifficult} 0
+force {GoDraw} 0
+run 10ns
+
+#loading S_matrix: (this should take us to S_Matrix, which takes us to S_Matrix_Wait)
+
+force {Clear_Grid} 0
+force {GoEasy} 1
+force {GoDifficult} 0
+force {GoDraw} 0  
+run 10ns
+
+#would have to load L_matrix, later
+
+#to get to DRAW:
+force {GoEasy} 0
+force {GoDifficult} 0
+force {GoDraw} 1
+force {Plot} 0
+run 10ns
+
+#to move to S_DRAW_WAIT:
+force {GoEasy} 0
+force {GoDifficult} 0
+force {GoDraw} 0
+force {Plot} 1 
+run 180ns
+
+force {Plot} 0
+run 50ns
+ 
+force {End_Game} 1  
+run 10ns
+
+force {End_Game} 0
+run 10ns
+

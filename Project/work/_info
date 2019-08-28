@@ -1,0 +1,132 @@
+m255
+K4
+z2
+13
+!s112 1.1
+!i10d 8192
+!i10e 25
+!i10f 100
+cModel Technology
+Z0 dC:/Users/Prerna/Desktop/CAD/newProject
+vcontrol
+Z1 !s110 1543212389
+!i10b 1
+!s100 m<fcd56S`dmoW[ge80jl50
+IadjzkKXDbHKOkKz2JT]BB1
+Z2 VDg1SIo80bB@j0V0VzS_@n1
+R0
+Z3 w1543211038
+Z4 8FSM.v
+Z5 FFSM.v
+L0 37
+Z6 OV;L;10.5b;63
+r1
+!s85 0
+31
+Z7 !s108 1543212389.000000
+Z8 !s107 FSM.v|
+Z9 !s90 -reportprogress|300|FSM.v|
+!i113 1
+Z10 tCvgOpt 0
+vdatapath
+!s110 1543212195
+!i10b 1
+!s100 8`]k`1R54CZa6f0]nHg`k0
+IDj[0[3cc>Vo2:iae?V9V32
+R2
+R0
+w1543211873
+8datapath.v
+Fdatapath.v
+L0 1
+R6
+r1
+!s85 0
+31
+!s108 1543212195.000000
+!s107 datapath.v|
+!s90 -reportprogress|300|datapath.v|
+!i113 1
+R10
+veasy_grid
+Z11 !s110 1543212390
+!i10b 1
+!s100 _JFYSz4b`1h7ISRo69>ce2
+I?j7>8EJ]5oE]n16giN^UU1
+R2
+R0
+w1542647766
+8easy_grid.v
+Feasy_grid.v
+Z12 L0 39
+R6
+r1
+!s85 0
+31
+R7
+!s107 easy_grid.v|
+!s90 -reportprogress|300|easy_grid.v|
+!i113 1
+R10
+vFSM
+R1
+!i10b 1
+!s100 nIO9KZa<^^0PRUeM=DXNE2
+I5;Sn3X7E5fz;WjXViSeFh2
+R2
+R0
+R3
+R4
+R5
+L0 1
+R6
+r1
+!s85 0
+31
+R7
+R8
+R9
+!i113 1
+R10
+n@f@s@m
+vhard_grid
+R11
+!i10b 1
+!s100 G3MMEB?zaF05XJI4ZIYz52
+I=d>IoNY5_>8JIRhN_XhD83
+R2
+R0
+w1542756553
+8hard_grid.v
+Fhard_grid.v
+R12
+R6
+r1
+!s85 0
+31
+!s108 1543212390.000000
+!s107 hard_grid.v|
+!s90 -reportprogress|300|hard_grid.v|
+!i113 1
+R10
+vtitleMemory
+R1
+!i10b 1
+!s100 mni9EzW[oYImQ3Xbb[j9@1
+IKcZ5Af34;VIBV`[E8SKDW3
+R2
+R0
+w1542647846
+8titleMemory.v
+FtitleMemory.v
+R12
+R6
+r1
+!s85 0
+31
+R7
+!s107 titleMemory.v|
+!s90 -reportprogress|300|titleMemory.v|
+!i113 1
+R10
+ntitle@memory
